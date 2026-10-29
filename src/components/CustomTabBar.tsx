@@ -1,14 +1,19 @@
 // src/components/CustomTabBar.tsx
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleProp, ViewStyle } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { LucideIcon, Home, BookOpen, Search, User } from 'lucide-react-native';
+import { View, TouchableOpacity, Text } from 'react-native';
+import type { Tabs } from 'expo-router';
+import { LucideIcon, Home, BookOpen, ClipboardList, Bell, User } from 'lucide-react-native';
 
-// Map icon components to route names
+// expo-router bundles the bottom-tabs navigator; take its tab bar props from `Tabs`
+// instead of depending on @react-navigation/bottom-tabs directly.
+type BottomTabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
+
+// Map icon components to route names (files in src/app/(tabs))
 const ICONS: Record<string, LucideIcon> = {
-  index: Home,
+  home: Home,
   courses: BookOpen,
-  search: Search,
+  assignments: ClipboardList,
+  notifications: Bell,
   profile: User,
 };
 
@@ -47,7 +52,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
               accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={options.tabBarTestID}
+              testID={options.tabBarButtonTestID}
               onPress={onPress}
               className={`flex-row items-center justify-center px-4 py-2.5 rounded-full transition-all ${
                 isFocused ? 'bg-tb-gold' : 'bg-transparent'
@@ -60,7 +65,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               />
               {isFocused && (
                 <Text className="text-white font-bold text-xs ml-2 tracking-wide capitalize">
-                  {label === 'index' ? 'Home' : label}
+                  {label}
                 </Text>
               )}
             </TouchableOpacity>

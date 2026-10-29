@@ -2,6 +2,9 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { CustomTabBar } from '@/components/CustomTabBar';
+import { RouteErrorBoundary } from '@/components/common/RouteErrorBoundary';
+
+export { RouteErrorBoundary as ErrorBoundary };
 
 export default function TabsLayout() {
   return (
@@ -12,30 +15,11 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: '#F4F7FE' }, // TB Background color
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-        }}
-      />
-      <Tabs.Screen
-        name="courses"
-        options={{
-          title: 'Courses',
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Explore',
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-        }}
-      />
+      <Tabs.Screen name="home" options={{ title: 'الرئيسية' }} />
+      <Tabs.Screen name="courses" options={{ title: 'البرامج' }} />
+      <Tabs.Screen name="assignments" options={{ title: 'الواجبات' }} />
+      <Tabs.Screen name="notifications" options={{ title: 'الإشعارات' }} />
+      <Tabs.Screen name="profile" options={{ title: 'حسابي' }} />
     </Tabs>
   );
 }

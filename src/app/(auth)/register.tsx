@@ -80,7 +80,7 @@
 
 // src/app/(auth)/register.tsx
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, StatusBar, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from '@/components/AuthInput';
@@ -140,7 +140,12 @@ export default function RegisterPage() {
   return (
     <SafeAreaView className="flex-1 bg-tb-background">
       <StatusBar barStyle="dark-content" />
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         <View className="flex-1 justify-center px-6 py-12">
           
           {/* قسم الشعار والعنوان */}
@@ -241,6 +246,7 @@ export default function RegisterPage() {
 
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

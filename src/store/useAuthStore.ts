@@ -1,221 +1,97 @@
-// // src/store/useAuthStore.ts
-// import { create } from 'zustand';
-// import * as SecureStore from 'expo-secure-store';
-// import { authApi } from '../api/auth';
-// import { AuthUser, LoginDto, RegisterDto } from '../types/auth';
-
-// interface AuthState {
-//   user: AuthUser | null;
-//   token: string | null;
-//   isAuthenticated: boolean;
-//   isLoading: boolean;
-//   error: string | null;
-
-//   // Actions
-//   login: (data: LoginDto) => Promise<any>;
-//   register: (data: RegisterDto) => Promise<void>;
-//   fetchProfile: () => Promise<void>;
-//   logout: () => Promise<void>;
-//   clearError: () => void;
-//   loadStoredAuth: () => Promise<void>;
-// }
-
-// export const useAuthStore = create<AuthState>((set, get) => ({
-//   user: null,
-//   token: null,
-//   isAuthenticated: false,
-//   isLoading: false,
-//   error: null,
-
-//   clearError: () => set({ error: null }),
-
-//   // Load auth state from SecureStore when app starts
-//   loadStoredAuth: async () => {
-//     try {
-//       set({ isLoading: true });
-//       const token = await SecureStore.getItemAsync('accessToken');
-//       if (token) {
-//         set({ token, isAuthenticated: true });
-//         // Hydrate user profile from backend
-//         await get().fetchProfile();
-//       }
-//     } catch (e) {
-//       await SecureStore.deleteItemAsync('accessToken');
-//       set({ token: null, user: null, isAuthenticated: false });
-//     } finally {
-//       set({ isLoading: false });
-//     }
-//   },
-
-//   // Login Action
-//   login: async (credentials: LoginDto) => {
-//     set({ isLoading: true, error: null });
-//     try {
-//       const response = await authApi.login(credentials);
-//       await SecureStore.setItemAsync('accessToken', response.accessToken);
-      
-//       set({
-//         token: response.accessToken,
-//         user: response.user,
-//         isAuthenticated: true,
-//         isLoading: false,
-//       });
-
-//       return response;
-
-
-//     } catch (err: any) {
-//       set({ error: err.message, isLoading: false });
-//       throw err;
-//     }
-//   },
-
-//   // Register Action
-//   register: async (data: RegisterDto) => {
-//     set({ isLoading: true, error: null });
-//     try {
-//       await authApi.register(data);
-//       // Automatically log in user after successful registration
-//       await get().login({ email: data.email, password: data.password });
-//     } catch (err: any) {
-//       set({ error: err.message, isLoading: false });
-//       throw err;
-//     }
-//   },
-
-//   // Get Current User Profile (/auth/me)
-//   fetchProfile: async () => {
-//     try {
-//       const userProfile = await authApi.getProfile();
-//       set({ user: userProfile });
-//     } catch (err: any) {
-//       // If fetching profile fails (e.g., 401 token expired), log out
-//       await get().logout();
-//     }
-//   },
-
-//   // Logout Action
-//   logout: async () => {
-//     await SecureStore.deleteItemAsync('accessToken');
-//     set({
-//       user: null,
-//       token: null,
-//       isAuthenticated: false,
-//       error: null,
-//     });
-//   },
-// }));
-
-
 // src/store/useAuthStore.ts
 import { create } from 'zustand';
-import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
-import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
 import { authApi } from '../api/auth';
-import { AuthUser, LoginDto, RegisterDto } from '../types/auth';
-
-// 1. إنشاء محول SecureStore متوافق مع Zustand StateStorage
-const secureStorage: StateStorage = {
-  getItem: async (name: string): Promise<string | null> => {
-    return await SecureStore.getItemAsync(name);
-  },
-  setItem: async (name: string, value: string): Promise<void> => {
-    await SecureStore.setItemAsync(name, value);
-  },
-  removeItem: async (name: string): Promise<void> => {
-    await SecureStore.deleteItemAsync(name);
-  },
-};
+import { getApiErrorMessage } from '../api/errors';
+import { setOnSessionExpired } from '../services/api';
+import { tokenStorage } from '../services/tokenStorage';
+import { AuthUser, LoginDto, LoginResponse, RegisterDto } from '../types/auth';
 
 interface AuthState {
   user: AuthUser | null;
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
 
-  // Actions
-  login: (data: LoginDto) => Promise<any>;
+  login: (data: LoginDto) => Promise<LoginResponse>;
   register: (data: RegisterDto) => Promise<void>;
-  fetchProfile: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
+  initializeAuth: () => Promise<boolean>;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+const signedOut = { user: null, isAuthenticated: false, isLoading: false, error: null };
 
-      clearError: () => set({ error: null }),
+export const useAuthStore = create<AuthState>((set, get) => ({
+  ...signedOut,
 
-      // Login Action
-      login: async (credentials: LoginDto) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await authApi.login(credentials);
+  clearError: () => set({ error: null }),
 
-          set({
-            token: response.accessToken,
-            user: response.user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
+  initializeAuth: async () => {
+    set({ isLoading: true });
+    try {
+      const [accessToken, refreshToken] = await Promise.all([
+        tokenStorage.getAccessToken(),
+        tokenStorage.getRefreshToken(),
+      ]);
+      if (!accessToken && !refreshToken) {
+        set(signedOut);
+        return false;
+      }
 
-          return response;
-        } catch (err: any) {
-          set({ error: err.message, isLoading: false });
-          throw err;
-        }
-      },
-
-      // Register Action
-      register: async (data: RegisterDto) => {
-        set({ isLoading: true, error: null });
-        try {
-          await authApi.register(data);
-          // التسجيل الدخول التلقائي بعد إنشاء الحساب
-          await get().login({ email: data.email, password: data.password });
-        } catch (err: any) {
-          set({ error: err.message, isLoading: false });
-          throw err;
-        }
-      },
-
-      // Get Current User Profile (/auth/me)
-      fetchProfile: async () => {
-        try {
-          const userProfile = await authApi.getProfile();
-          set({ user: userProfile });
-        } catch (err: any) {
-          // إذا فشل جلب الحساب (مثلاً انقضاء فترة الـ Token)، يتم تسجيل الخروج
-          await get().logout();
-        }
-      },
-
-      // Logout Action
-      logout: async () => {
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          error: null,
-        });
-      },
-    }),
-    {
-      name: 'auth-storage', // اسم المفتاح الذي سيتم الحفظ تحته في SecureStore
-      storage: createJSONStorage(() => secureStorage),
-      // تحديـد الحقول المُراد حفظها فقط (نستثني حالات التحميل والأخطاء)
-      partialize: (state) => ({
-        token: state.token,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-      }),
+      // Verifies the session; an expired access token is refreshed by the interceptor.
+      const user = await authApi.getProfile();
+      set({ user, isAuthenticated: true, isLoading: false });
+      return true;
+    } catch (error) {
+      // A 401 here means the refresh was rejected too, so the session is gone.
+      // Network errors keep the tokens so the next launch can restore the session.
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        await tokenStorage.clear();
+        set(signedOut);
+      } else {
+        // Shown on the login screen so the user knows why they were not signed in automatically.
+        set({ ...signedOut, error: getApiErrorMessage(error, 'تعذّر التحقق من الجلسة، يرجى تسجيل الدخول.') });
+      }
+      return false;
     }
-  )
-);
+  },
+
+  login: async (credentials: LoginDto) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await authApi.login(credentials);
+      set({ user: response.user, isAuthenticated: true, isLoading: false });
+      return response;
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'تعذّر تسجيل الدخول');
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  register: async (data: RegisterDto) => {
+    set({ isLoading: true, error: null });
+    try {
+      await authApi.register(data);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'تعذّر إنشاء الحساب');
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+    await get().login({ email: data.email, password: data.password });
+  },
+
+  logout: async () => {
+    try {
+      await authApi.logout();
+    } catch (e) {
+      console.error('Failed to clear session tokens:', e);
+    }
+    set(signedOut);
+  },
+}));
+
+// Refresh token rejected mid-session: tokens are already cleared, drop the in-memory session
+// so the root layout redirects to login.
+setOnSessionExpired(() => useAuthStore.setState(signedOut));

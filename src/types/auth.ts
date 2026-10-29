@@ -1,7 +1,18 @@
 // src/types/auth.ts
+import type { GlobalRole } from './api.contract';
 
-export type GlobalRole = 'CLIENT' | 'ADMIN' | 'OWNER';
-export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+// Mirrors the Prisma enums the NestJS guards check (`globalRole` on the JWT and `req.user`).
+export type { GlobalRole };
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+
+export const ROLE_LABELS_AR: Record<GlobalRole, string> = {
+  SUPER_ADMIN: 'مدير النظام',
+  INCUBATOR_MANAGER: 'مدير الحاضنة',
+  INSTRUCTOR: 'مدرّب',
+  MENTOR: 'موجّه',
+  STUDENT: 'رائد أعمال / طالب',
+  GUEST: 'ضيف',
+};
 
 // Registered user in response
 export interface AuthUser {
@@ -36,13 +47,20 @@ export interface LoginDto {
 
 export interface LoginResponse {
   accessToken: string;
+  refreshToken: string;
   user: AuthUser;
 }
 
-// 3. Get Current User Response
+// 3. POST /auth/refresh - the refresh token is rotated on every call
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+// 4. Get Current User Response
 export type UserProfileResponse = AuthUser;
 
-// 4. Standard NestJS Error Format
+// 5. Standard NestJS Error Format
 export interface ApiErrorResponse {
   statusCode: number;
   message: string | string[];

@@ -1,6 +1,6 @@
 // src/app/(auth)/login.tsx
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, StatusBar, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from '@/components/AuthInput';
@@ -13,21 +13,18 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
-  const { login, isLoading, error, token, user } = useAuthStore();
-
-  console.log(user, 'ttttttttttttttttttttttttttttt')
+  const { login, isLoading, error } = useAuthStore();
 
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('خطأ', 'يرجى إدخال البريد الإلكتروني وكلمة المرور');
       return;
+      
     }
 
     try {
-      const res = await login({ email, password });
-      console.log(res, 'login response');
+      await login({ email: email.trim(), password });
       router.replace("/(tabs)/home");
-      // Router will automatically redirect via Auth Guard
     } catch (err: any) {
       Alert.alert('فشل تسجيل الدخول', err.message);
     }
@@ -36,7 +33,12 @@ export default function LoginPage() {
   return (
     <SafeAreaView className="flex-1 bg-tb-background">
       <StatusBar barStyle="dark-content" />
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         <View className="flex-1 justify-center px-6 py-12">
           
           {/* قسم الشعار والعنوان */}
@@ -53,6 +55,13 @@ export default function LoginPage() {
               سجل الدخول للوصول إلى دوراتك وحسابك الشخصي في تك بوكس
             </Text>
           </View>
+
+          {/* آخر خطأ (مثلاً تعذّر الاتصال بالخادم عند فتح التطبيق) */}
+          {error && (
+            <View className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-6">
+              <Text className="text-red-600 text-sm font-semibold text-right">{error}</Text>
+            </View>
+          )}
 
           {/* نموذج البيانات */}
           <View className="bg-white p-6 rounded-3xl shadow-sm border border-tb-muted/10 mb-8">
@@ -73,7 +82,7 @@ export default function LoginPage() {
             />
             
             <View className="flex-row justify-start mb-6 -mt-3">
-              <TouchableOpacity onPress={handleLogin}>
+              <TouchableOpacity onPress={() => Alert.alert('نسيت كلمة المرور؟', 'يرجى التواصل مع إدارة تك بوكس لإعادة تعيين كلمة المرور.')}>
                 <Text className="text-tb-gold/90 text-sm font-medium">نسيت كلمة المرور؟</Text>
               </TouchableOpacity>
             </View>
@@ -97,6 +106,7 @@ export default function LoginPage() {
 
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -59,7 +59,7 @@ export default function HomeScreen() {
     //     {Platform.OS === 'web' && <WebBadge />}
     //   </SafeAreaView>
     // </ThemedView>
-    <Redirect href={"/(auth)/login"} />
+    <Redirect href={"/(tabs)/home"} />
   );
 }
 

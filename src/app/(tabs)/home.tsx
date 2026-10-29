@@ -1,104 +1,350 @@
 // src/app/(tabs)/index.tsx
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StatusBar } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
+import {
+  Award,
+  BookOpen,
+  Check,
+  ChevronLeft,
+  Clock,
+  Database,
+  Flame,
+  Palette,
+  Play,
+  Rocket,
+  Server,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Header } from '@/components/Header';
-import { Rocket, BookOpen, Clock, Award, PlayCircle, ChevronLeft } from 'lucide-react-native';
+
+/* -------------------------------------------------------------------------- */
+/*  Tokens & mock data (replace with API / store data)                        */
+/* -------------------------------------------------------------------------- */
+
+const COLORS = {
+  navy: '#1B254B',
+  gold: '#BF9B30',
+  green: '#10B981',
+  orange: '#F97316',
+  onNavyMuted: 'rgba(255,255,255,0.6)',
+  onNavyTrack: 'rgba(255,255,255,0.12)',
+} as const;
+
+type Stat = { id: string; value: string; label: string; Icon: LucideIcon; color: string };
+type Course = {
+  id: string;
+  title: string;
+  lessons: number;
+  hours: number;
+  Icon: LucideIcon;
+  color: string;
+  tint: string;
+};
+type Day = { label: string; done: boolean };
+
+const STATS: Stat[] = [
+  { id: 'courses', value: '4', label: 'كورسات حالية', Icon: BookOpen, color: COLORS.navy },
+  { id: 'hours', value: '12.5', label: 'ساعة تعلّم', Icon: Clock, color: COLORS.gold },
+  { id: 'certs', value: '2', label: 'شهادات مكتملة', Icon: Award, color: COLORS.green },
+];
+
+const COURSES: Course[] = [
+  {
+    id: 'nest',
+    title: 'بناء الـ APIs باستخدام NestJS',
+    lessons: 18,
+    hours: 6,
+    Icon: Server,
+    color: COLORS.navy,
+    tint: 'rgba(27,37,75,0.08)',
+  },
+  {
+    id: 'uiux',
+    title: 'أساسيات تصميم تجربة المستخدم',
+    lessons: 12,
+    hours: 4,
+    Icon: Palette,
+    color: COLORS.gold,
+    tint: 'rgba(191,155,48,0.12)',
+  },
+  {
+    id: 'pg',
+    title: 'قواعد البيانات مع PostgreSQL',
+    lessons: 15,
+    hours: 5,
+    Icon: Database,
+    color: COLORS.green,
+    tint: 'rgba(16,185,129,0.10)',
+  },
+];
+
+// Saturday → Friday
+const WEEK: Day[] = [
+  { label: 'س', done: true },
+  { label: 'ح', done: true },
+  { label: 'ن', done: false },
+  { label: 'ث', done: true },
+  { label: 'ر', done: true },
+  { label: 'خ', done: false },
+  { label: 'ج', done: false },
+];
+
+
+const TODAY_INDEX = 5;
+
+
+
+/* -------------------------------------------------------------------------- */
+/*  Small building blocks                                                     */
+/* -------------------------------------------------------------------------- */
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+type ProgressRingProps = { progress: number; size?: number; stroke?: number };
+
+/** The one animated moment on the screen: the ring fills on mount. */
+function ProgressRing({ progress, size = 84, stroke = 8 }: ProgressRingProps) {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const value = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(value, {
+      toValue: progress,
+      duration: 1100,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false, // strokeDashoffset isn't supported by the native driver
+    }).start();
+  }, [progress, value]);
+
+  const strokeDashoffset = value.interpolate({
+    inputRange: [0, 100],
+    outputRange: [circumference, 0],
+  });
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={COLORS.onNavyTrack}
+          strokeWidth={stroke}
+          fill="none"
+        />
+        <AnimatedCircle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={COLORS.gold}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          fill="none"
+        />
+      </Svg>
+      <View className="absolute inset-0 items-center justify-center">
+        <Text className="text-white text-lg font-bold">{progress}%</Text>
+      </View>
+    </View>
+  );
+}
+
+type SectionHeaderProps = { title: string; actionLabel?: string; onActionPress?: () => void };
+
+function SectionHeader({ title, actionLabel, onActionPress }: SectionHeaderProps) {
+  return (
+    <View className="flex-row items-center justify-between mb-4">
+      <Text className="text-tb-navy text-lg font-bold">{title}</Text>
+      {actionLabel ? (
+        <Pressable
+          onPress={onActionPress}
+          hitSlop={8}
+          className="flex-row items-center gap-1 active:opacity-60"
+        >
+          <Text className="text-tb-gold text-xs font-bold">{actionLabel}</Text>
+          <ChevronLeft size={14} color={COLORS.gold} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Screen                                                                    */
+/* -------------------------------------------------------------------------- */
 
 export default function HomeScreen() {
+  const activeDays = WEEK.filter((d) => d.done).length;
+
   return (
     <SafeAreaView className="flex-1 bg-tb-background" edges={['top']}>
       <StatusBar barStyle="dark-content" />
-      
-      {/* الهيدر القابل للإعادة الاستخدام */}
       <Header />
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        className="px-6 pt-6"
+        contentContainerStyle={{ paddingBottom: 120, paddingTop: 20 }}
       >
-        {/* BANNER: بطاقة الحاضنة والتطوير */}
-        <View className="bg-tb-navy rounded-3xl p-6 shadow-xl shadow-tb-navy/30 mb-8 relative overflow-hidden">
-          <View className="flex-row justify-between items-start">
-            <View className="flex-1 pl-4 items-start">
-              <View className="bg-tb-gold/20 px-3 py-1 rounded-full mb-3 border border-tb-gold/30">
-                <Text className="text-tb-gold text-xs font-bold">حاضنة المشاريع 🚀</Text>
+        {/* GREETING */}
+        <View className="px-6 mb-5 items-start">
+          <Text className="text-tb-navy text-2xl font-bold mb-1">مرحباً بك 👋</Text>
+          <Text className="text-tb-muted text-sm">لديك درس غير مكتمل، أكمله اليوم.</Text>
+        </View>
+
+        {/* HERO: continue learning */}
+        <View className="px-6 mb-6">
+          <View className="bg-tb-navy rounded-[32px] p-6 overflow-hidden shadow-xl shadow-tb-navy/30">
+            <View className="absolute -top-16 -right-12 w-48 h-48 rounded-full bg-white/5" />
+            <View className="absolute -bottom-20 -left-10 w-44 h-44 rounded-full bg-tb-gold/10" />
+
+            <View className="flex-row items-center gap-4">
+              <View className="flex-1 items-start">
+                <Text className="text-white text-xl font-bold leading-8 mb-1">
+                  تطوير التطبيقات بـ React Native & Expo
+                </Text>
+                <Text className="text-white/60 text-xs">الوحدة 3: إدارة الحالات المتقدمة</Text>
               </View>
-              <Text className="text-white text-2xl font-bold mb-2 text-right">
-                انطلق بمشروعك إلى المستوى التالي
+              <ProgressRing progress={65} />
+            </View>
+
+            <View className="flex-row items-center justify-between mt-6">
+              <View className="flex-row items-center gap-2">
+                <Clock size={14} color={COLORS.onNavyMuted} />
+                <Text className="text-white/60 text-xs">المتبقي 20 دقيقة</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="متابعة الدرس"
+                className="bg-tb-gold flex-row items-center gap-2 px-5 py-3 rounded-2xl active:opacity-80"
+              >
+                <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                <Text className="text-white font-bold text-sm">متابعة الدرس</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        {/* STATS: one container, three columns */}
+        <View className="px-6 mb-8">
+          <View className="bg-white rounded-3xl border border-tb-muted/10 shadow-sm flex-row items-stretch py-5">
+            {STATS.map(({ id, value, label, Icon, color }, index) => (
+              <React.Fragment key={id}>
+                {index > 0 && <View className="w-px bg-tb-muted/15 my-1" />}
+                <View className="flex-1 items-center">
+                  <Icon size={20} color={color} />
+                  <Text className="text-tb-navy text-xl font-bold mt-2">{value}</Text>
+                  <Text className="text-tb-muted text-xs font-semibold mt-1">{label}</Text>
+                </View>
+              </React.Fragment>
+            ))}
+          </View>
+        </View>
+
+        {/* WEEKLY ACTIVITY */}
+        <View className="px-6 mb-8">
+          <View className="bg-white rounded-3xl border border-tb-muted/10 p-5">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-tb-navy font-bold text-base">نشاطك هذا الأسبوع</Text>
+              <View className="flex-row items-center gap-1 bg-orange-500/10 px-3 py-1 rounded-full">
+                <Flame size={14} color={COLORS.orange} />
+                <Text className="text-orange-600 text-xs font-bold">{activeDays} أيام نشطة</Text>
+              </View>
+            </View>
+
+            <View className="flex-row justify-between">
+              {WEEK.map((day, index) => {
+                const isToday = index === TODAY_INDEX;
+                return (
+                  <View key={day.label} className="items-center gap-2">
+                    <View
+                      className={
+                        day.done
+                          ? 'w-10 h-10 rounded-full items-center justify-center bg-tb-navy'
+                          : isToday
+                            ? 'w-10 h-10 rounded-full items-center justify-center border-2 border-tb-gold bg-tb-gold/10'
+                            : 'w-10 h-10 rounded-full items-center justify-center bg-tb-background'
+                      }
+                    >
+                      {day.done && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
+                    </View>
+                    <Text
+                      className={
+                        isToday ? 'text-tb-gold text-xs font-bold' : 'text-tb-muted text-xs font-semibold'
+                      }
+                    >
+                      {day.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* RECOMMENDED COURSES: horizontal carousel */}
+        <View className="px-6">
+          <SectionHeader title="مقترحة لك" actionLabel="عرض الكل" />
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+          className="mb-8"
+        >
+          {COURSES.map(({ id, title, lessons, hours, Icon, color, tint }) => (
+            <Pressable
+              key={id}
+              className="w-56 bg-white rounded-3xl border border-tb-muted/10 p-4 active:opacity-80"
+            >
+              <View
+                className="w-12 h-12 rounded-2xl items-center justify-center mb-4"
+                style={{ backgroundColor: tint }}
+              >
+                <Icon size={22} color={color} />
+              </View>
+              <Text
+                numberOfLines={2}
+                className="text-tb-navy font-bold text-base leading-6 mb-3 items-start"
+              >
+                {title}
               </Text>
-              <Text className="text-tb-muted text-xs leading-5 mb-4 text-right">
-                احصل على توجيه مباشر من الخبراء وادعم مهاراتك التقنية في تك بوكس.
-              </Text>
-              <TouchableOpacity className="bg-tb-gold px-5 py-3 rounded-xl flex-row items-center">
-                <Text className="text-white font-bold text-sm ml-2">استكشف البرامج</Text>
-                <Rocket size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+              <View className="flex-row items-center gap-3">
+                <View className="flex-row items-center gap-1">
+                  <BookOpen size={12} color="#A3AED0" />
+                  <Text className="text-tb-muted text-xs">{lessons} درس</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Clock size={12} color="#A3AED0" />
+                  <Text className="text-tb-muted text-xs">{hours} ساعات</Text>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
 
-        {/* SECTION 1: إحصائيات التعلم السريعة */}
-        <Text className="text-tb-navy text-lg font-bold mb-4 text-right">ملخص نظرتك العامة</Text>
-        <View className="flex-row space-x-3 space-x-reverse mb-8">
-          <View className="flex-1 bg-white p-4 rounded-2xl border border-tb-muted/10 shadow-sm items-start">
-            <View className="w-10 h-10 bg-tb-navy/5 rounded-xl items-center justify-center mb-3">
-              <BookOpen size={20} color="#1B254B" />
-            </View>
-            <Text className="text-tb-navy text-xl font-bold">4</Text>
-            <Text className="text-tb-muted text-xs font-semibold mt-1">الكورسات الحالية</Text>
-          </View>
-
-          <View className="flex-1 bg-white p-4 rounded-2xl border border-tb-muted/10 shadow-sm items-start">
-            <View className="w-10 h-10 bg-tb-gold/10 rounded-xl items-center justify-center mb-3">
-              <Clock size={20} color="#BF9B30" />
-            </View>
-            <Text className="text-tb-navy text-xl font-bold">12.5 س</Text>
-            <Text className="text-tb-muted text-xs font-semibold mt-1">ساعات التعلم</Text>
-          </View>
-
-          <View className="flex-1 bg-white p-4 rounded-2xl border border-tb-muted/10 shadow-sm items-start">
-            <View className="w-10 h-10 bg-green-500/10 rounded-xl items-center justify-center mb-3">
-              <Award size={20} color="#10B981" />
-            </View>
-            <Text className="text-tb-navy text-xl font-bold">2</Text>
-            <Text className="text-tb-muted text-xs font-semibold mt-1">شهادات مكتملة</Text>
-          </View>
-        </View>
-
-        {/* SECTION 2: متابعة التعلم (مواصلة الكورس) */}
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-tb-navy text-lg font-bold">متابعة التعلم</Text>
-          <TouchableOpacity className="flex-row items-center">
-            <Text className="text-tb-gold text-xs font-bold ml-1">عرض الكل</Text>
-            <ChevronLeft size={14} color="#BF9B30" />
-          </TouchableOpacity>
-        </View>
-
-        <View className="bg-white p-5 rounded-3xl border border-tb-muted/10 shadow-sm mb-8">
-          <View className="flex-row items-center mb-4 space-x-4 space-x-reverse">
-            <View className="w-14 h-14 bg-tb-navy/10 rounded-2xl items-center justify-center">
-              <PlayCircle size={32} color="#1B254B" />
+        {/* INCUBATOR: quiet, secondary call to action */}
+        <View className="px-6">
+          <Pressable
+            accessibilityRole="button"
+            className="flex-row items-center gap-4 bg-tb-gold/10 border border-tb-gold/30 rounded-3xl p-5 active:opacity-80"
+          >
+            <View className="w-12 h-12 rounded-2xl bg-tb-gold items-center justify-center">
+              <Rocket size={22} color="#FFFFFF" />
             </View>
             <View className="flex-1 items-start">
-              <Text className="text-tb-navy font-bold text-base mb-1">
-                تطوير التطبيقات بـ React Native & Expo
+              <Text className="text-tb-navy font-bold text-base mb-1">حاضنة المشاريع</Text>
+              <Text className="text-tb-muted text-xs leading-5">
+                احصل على توجيه مباشر من الخبراء وطوّر مشروعك التقني.
               </Text>
-              <Text className="text-tb-muted text-xs">الوحدة 3: إدارة الحالات المتقدمة</Text>
             </View>
-          </View>
-
-          {/* شريط التقدم */}
-          <View className="w-full bg-tb-background h-2 rounded-full overflow-hidden mb-2">
-            <View className="bg-tb-gold h-full w-[65%]" />
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-tb-muted text-xs">تم إنجاز 65%</Text>
-            <Text className="text-tb-navy text-xs font-bold">المتبقي 20 دقيقة</Text>
-          </View>
+            <ChevronLeft size={18} color={COLORS.gold} />
+          </Pressable>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );

@@ -11,6 +11,10 @@ interface HeaderProps {
 
 export function Header({ title, showUser = true }: HeaderProps) {
   const { user } = useAuthStore();
+  // Read once: `user` is null after logout, and the React Compiler may evaluate a plain
+  // `user.x` read before its `user?.x` guard (see course/[slug].tsx).
+  const firstName = user?.firstName ?? '';
+  const lastName = user?.lastName ?? '';
 
   return (
     <View className="bg-white px-6 pt-4 pb-4 border-b border-tb-muted/10 flex-row items-center justify-between">
@@ -19,7 +23,7 @@ export function Header({ title, showUser = true }: HeaderProps) {
         {showUser ? (
           <View className="w-11 h-11 rounded-full bg-tb-navy items-center justify-center shadow-sm">
             <Text className="text-tb-gold font-bold text-base">
-              {user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'ت'}
+              {firstName ? firstName.charAt(0).toUpperCase() : 'ت'}
             </Text>
           </View>
         ) : (
@@ -35,7 +39,7 @@ export function Header({ title, showUser = true }: HeaderProps) {
             <>
               <Text className="text-tb-muted text-xs font-semibold">مرحباً بك 👋</Text>
               <Text className="text-tb-navy text-lg font-bold">
-                {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'طالب تك بوكس'}
+                {firstName ? `${firstName} ${lastName}` : 'طالب تك بوكس'}
               </Text>
             </>
           ) : (

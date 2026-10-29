@@ -1,12 +1,12 @@
 // src/components/programs/ProgramCard.tsx
-// Catalog card for a program the student has not joined: details and a "join" action.
+// Compact catalog card for a program the student has not joined: details and a "join" action.
 import React, { useEffect, useState } from 'react';
-import { Animated, Image, Pressable, Text, View } from 'react-native';
-import { Info, Layers, Lock, UserPlus, Users } from 'lucide-react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
+import { CalendarDays, ChevronLeft, Info, Layers, Lock, UserPlus, Users } from 'lucide-react-native';
 import type { Program } from '@/types/lms';
 import type { EnrollmentBlockReason, EnrollmentStatus } from '@/types/api.contract';
-import { resolveFileUrl } from '@/services/fileUrl';
-import { getProgramTypeUi } from './programTypeUi';
+import { ProgramCover } from './ProgramCover';
+import { getProgramTypeUi, seatsLabel, tracksLabel } from './programTypeUi';
 
 const BLOCK_REASON_LABEL: Record<EnrollmentBlockReason, string> = {
   NOT_AVAILABLE: 'غير متاح حالياً',
@@ -17,6 +17,18 @@ const BLOCK_REASON_LABEL: Record<EnrollmentBlockReason, string> = {
 
 /** Seats left at or below this are highlighted. */
 const LOW_SEATS = 10;
+
+/** "12 نوفمبر" for a future start date, otherwise null. Latin digits, like the rest of the app. */
+function upcomingStart(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) return null;
+  try {
+    return date.toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long' });
+  } catch {
+    return null;
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Card                                                                      */
@@ -32,8 +44,10 @@ interface ProgramCardProps {
 
 export function ProgramCard({ program, onPress, onEnroll, previousStatus }: ProgramCardProps) {
   const { label, Icon, color } = getProgramTypeUi(program.type);
-  const tracksCount = program._count?.tracks;
+  const tracksCount = program._count?.tracks ?? 0;
   const seatsLeft = program.seats?.remaining ?? null;
+  const lowSeats = program.canEnroll && seatsLeft !== null && seatsLeft <= LOW_SEATS;
+  const startsOn = upcomingStart(program.startDate);
   const blockLabel = program.enrollmentBlockReason
     ? BLOCK_REASON_LABEL[program.enrollmentBlockReason]
     : 'التسجيل مغلق';
@@ -43,83 +57,84 @@ export function ProgramCard({ program, onPress, onEnroll, previousStatus }: Prog
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${program.title}، ${label}`}
-      className="flex-1 bg-white rounded-[28px] border border-tb-muted/10 shadow-sm overflow-hidden active:opacity-90"
+      className="flex-1 bg-white rounded-3xl border border-tb-muted/10 shadow-sm shadow-tb-navy/5 p-4 active:opacity-90"
     >
-      {/* Cover: image, or a branded placeholder so every card keeps the same rhythm */}
-      <View className="h-36 bg-tb-navy overflow-hidden">
-        {program.coverImage ? (
-          <Image
-            source={{ uri: resolveFileUrl(program.coverImage) }}
-            className="w-full h-full"
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View className="flex-1 items-center justify-center">
-            <View className="absolute -top-10 -right-8 w-36 h-36 rounded-full bg-white/5" />
-            <View className="absolute -bottom-12 -left-6 w-32 h-32 rounded-full bg-tb-gold/15" />
-            <Icon size={48} color="rgba(191,155,48,0.55)" />
-          </View>
-        )}
+      <View className="flex-row gap-3.5">
+        <ProgramCover
+          coverImage={program.coverImage}
+          type={program.type}
+          className="w-[88px] h-[88px] rounded-2xl"
+          iconSize={30}
+        />
 
-        {/* Type badge floats on the cover */}
-        <View
-          style={{ position: 'absolute', top: 12, start: 12 }}
-          className="flex-row items-center gap-1.5 bg-white/95 px-3 py-1.5 rounded-full"
-        >
-          <Icon size={12} color={color} />
-          <Text className="text-[11px] font-bold" style={{ color }}>
-            {label}
+        <View className="flex-1 items-start">
+          <View className="flex-row items-center gap-1.5 mb-1">
+            <Icon size={12} color={color} />
+            <Text className="text-[11px] font-bold" style={{ color }} numberOfLines={1}>
+              {label}
+            </Text>
+          </View>
+
+          <Text className="text-tb-navy text-base font-bold leading-6" numberOfLines={2}>
+            {program.title}
           </Text>
+
+          <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+            {tracksCount > 0 ? (
+              <View className="flex-row items-center gap-1">
+                <Layers size={12} color="#8A99B8" />
+                <Text className="text-tb-muted text-[11px] font-semibold">{tracksLabel(tracksCount)}</Text>
+              </View>
+            ) : null}
+            {startsOn ? (
+              <View className="flex-row items-center gap-1">
+                <CalendarDays size={12} color="#8A99B8" />
+                <Text className="text-tb-muted text-[11px] font-semibold">يبدأ {startsOn}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 
-      {/* Body */}
-      <View className="flex-1 p-5">
-        {previousStatus ? (
-          <View className="flex-row items-center gap-1.5 self-start bg-tb-gold/10 px-2.5 py-1 rounded-full mb-2.5">
-            <Info size={11} color="#BF9B30" />
-            <Text className="text-tb-gold text-[11px] font-bold">
-              {previousStatus === 'REJECTED' ? 'يمكنك التقديم مجدداً' : 'يمكنك الانضمام مجدداً'}
-            </Text>
-          </View>
-        ) : null}
-
-        <Text className="text-tb-navy text-base font-bold leading-6 mb-1.5" numberOfLines={2}>
-          {program.title}
+      {program.description ? (
+        <Text className="text-tb-muted text-xs leading-5 mt-3" numberOfLines={2}>
+          {program.description}
         </Text>
+      ) : null}
 
-        {program.description ? (
-          <Text className="text-tb-muted text-xs leading-5" numberOfLines={2}>
-            {program.description}
-          </Text>
-        ) : null}
-
-        {/* Meta */}
-        <View className="flex-row flex-wrap items-center gap-x-4 gap-y-1.5 mt-auto pt-4">
-          {tracksCount !== undefined ? (
-            <View className="flex-row items-center gap-1.5">
-              <Layers size={13} color="#8A99B8" />
-              <Text className="text-tb-muted text-xs font-semibold">{tracksCount} مسارات</Text>
+      {previousStatus || lowSeats ? (
+        <View className="flex-row flex-wrap gap-2 mt-3">
+          {previousStatus ? (
+            <View className="flex-row items-center gap-1.5 bg-tb-navy/5 px-2.5 py-1 rounded-full">
+              <Info size={11} color="#1B254B" />
+              <Text className="text-tb-navy text-[11px] font-bold">
+                {previousStatus === 'REJECTED' ? 'يمكنك التقديم مجدداً' : 'يمكنك الانضمام مجدداً'}
+              </Text>
             </View>
           ) : null}
-          {program.canEnroll && seatsLeft !== null && seatsLeft <= LOW_SEATS ? (
-            <View className="flex-row items-center gap-1.5">
-              <Users size={13} color="#BF9B30" />
-              <Text className="text-tb-gold text-xs font-bold">تبقّى {seatsLeft} مقاعد</Text>
+          {lowSeats ? (
+            <View className="flex-row items-center gap-1.5 bg-tb-gold/10 px-2.5 py-1 rounded-full">
+              <Users size={11} color="#BF9B30" />
+              <Text className="text-tb-gold text-[11px] font-bold">
+                تبقّى {seatsLabel(seatsLeft ?? 0)}
+              </Text>
             </View>
           ) : null}
         </View>
+      ) : null}
 
-        {/* Actions */}
-        <View className="flex-row items-center gap-3 mt-4 pt-4 border-t border-tb-muted/10">
+      {/* Actions */}
+      <View className="mt-auto pt-4">
+        <View className="flex-row items-center justify-between pt-3.5 border-t border-tb-muted/10">
           <Pressable
             onPress={onPress}
+            hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={`عرض تفاصيل ${program.title}`}
-            className="flex-1 h-11 rounded-2xl border border-tb-navy/15 items-center justify-center active:opacity-80"
+            accessibilityLabel={`عرض منهج ${program.title}`}
+            className="flex-row items-center gap-1 active:opacity-60"
           >
-            <Text className="text-tb-navy font-bold text-xs">عرض المنهج</Text>
+            <Text className="text-tb-navy text-xs font-bold">عرض المنهج</Text>
+            <ChevronLeft size={14} color="#1B254B" />
           </Pressable>
 
           {program.canEnroll ? (
@@ -127,17 +142,17 @@ export function ProgramCard({ program, onPress, onEnroll, previousStatus }: Prog
               onPress={onEnroll}
               accessibilityRole="button"
               accessibilityLabel={`انضم إلى ${program.title}`}
-              className="flex-1 h-11 rounded-2xl bg-tb-gold flex-row items-center justify-center gap-1.5 shadow-md shadow-tb-gold/30 active:opacity-85"
+              className="h-10 px-5 rounded-xl bg-tb-gold flex-row items-center gap-1.5 shadow-sm shadow-tb-gold/40 active:opacity-85"
             >
               <Text className="text-white font-bold text-xs">انضم الآن</Text>
-              <UserPlus size={15} color="#FFFFFF" />
+              <UserPlus size={14} color="#FFFFFF" />
             </Pressable>
           ) : (
             <View
               accessibilityLabel={blockLabel}
-              className="flex-1 h-11 rounded-2xl bg-tb-background flex-row items-center justify-center gap-1.5"
+              className="h-10 px-4 rounded-xl bg-tb-background flex-row items-center gap-1.5"
             >
-              <Lock size={13} color="#8A99B8" />
+              <Lock size={12} color="#8A99B8" />
               <Text className="text-tb-muted font-bold text-xs">{blockLabel}</Text>
             </View>
           )}
@@ -167,16 +182,18 @@ export function ProgramCardSkeleton() {
 
   return (
     <Animated.View style={{ opacity, flex: 1 }}>
-      <View className="flex-1 bg-white rounded-[28px] border border-tb-muted/10 overflow-hidden">
-        <View className="h-36 bg-tb-muted/15" />
-        <View className="p-5 gap-3">
-          <View className="h-5 w-2/3 rounded-lg bg-tb-muted/15" />
-          <View className="h-3 w-full rounded-lg bg-tb-muted/10" />
-          <View className="h-3 w-4/5 rounded-lg bg-tb-muted/10" />
-          <View className="flex-row gap-3 mt-2">
-            <View className="flex-1 h-11 rounded-2xl bg-tb-muted/10" />
-            <View className="flex-1 h-11 rounded-2xl bg-tb-muted/15" />
+      <View className="flex-1 bg-white rounded-3xl border border-tb-muted/10 p-4">
+        <View className="flex-row gap-3.5">
+          <View className="w-[88px] h-[88px] rounded-2xl bg-tb-muted/15" />
+          <View className="flex-1 gap-2.5 pt-1">
+            <View className="h-3 w-20 rounded-full bg-tb-muted/15" />
+            <View className="h-4 w-4/5 rounded-lg bg-tb-muted/15" />
+            <View className="h-3 w-1/2 rounded-lg bg-tb-muted/10" />
           </View>
+        </View>
+        <View className="flex-row items-center justify-between mt-4 pt-3.5 border-t border-tb-muted/10">
+          <View className="h-3 w-16 rounded-full bg-tb-muted/10" />
+          <View className="h-10 w-24 rounded-xl bg-tb-muted/15" />
         </View>
       </View>
     </Animated.View>

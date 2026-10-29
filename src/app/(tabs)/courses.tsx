@@ -250,6 +250,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Reanimated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import {
   AlertCircle,
@@ -285,6 +286,7 @@ import { TypeFilterTab, type FilterOption } from '@/components/programs/TypeFilt
 const COLORS = {
   gold: '#BF9B30',
   muted: '#8A99B8',
+  navy: '#1B254B',
 } as const;
 
 const H_PADDING = 24;
@@ -362,27 +364,27 @@ type SectionHeaderProps = {
 };
 
 function SectionHeader({ Icon, title, subtitle, count, tone }: SectionHeaderProps) {
+  const isNavy = tone === 'navy';
+
   return (
     <View className="flex-row items-center gap-3 mb-4" accessibilityRole="header">
       <View
-        className={`w-10 h-10 rounded-2xl items-center justify-center ${
-          tone === 'navy' ? 'bg-tb-navy' : 'bg-tb-gold/15'
+        className={`w-11 h-11 rounded-2xl items-center justify-center ${
+          isNavy ? 'bg-tb-navy/5' : 'bg-tb-gold/10'
         }`}
       >
-        <Icon size={20} color={tone === 'navy' ? '#EBCB6C' : COLORS.gold} />
+        <Icon size={20} color={isNavy ? COLORS.navy : COLORS.gold} />
       </View>
       <View className="flex-1 items-start">
         <View className="flex-row items-center gap-2">
           <Text className="text-tb-navy text-lg font-bold">{title}</Text>
           {count !== undefined ? (
             <View
-              className={`px-2.5 py-0.5 rounded-full ${tone === 'navy' ? 'bg-tb-navy' : 'bg-tb-gold/15'}`}
+              className={`min-w-[24px] h-6 px-2 rounded-full items-center justify-center ${
+                isNavy ? 'bg-tb-navy' : 'bg-tb-gold'
+              }`}
             >
-              <Text
-                className={`text-xs font-bold ${tone === 'navy' ? 'text-tb-gold-light' : 'text-tb-gold'}`}
-              >
-                {count}
-              </Text>
+              <Text className="text-white text-[11px] font-bold">{count}</Text>
             </View>
           ) : null}
         </View>
@@ -392,7 +394,10 @@ function SectionHeader({ Icon, title, subtitle, count, tone }: SectionHeaderProp
   );
 }
 
-/** Wraps children into equal-width columns; each child cell stretches to the row height. */
+/**
+ * Wraps children into equal-width columns; each cell stretches to the row height.
+ * Cells fade up in a short stagger when they mount (first load, filter changes).
+ */
 function Grid({ columns, itemWidth, children }: { columns: number; itemWidth: number; children: React.ReactNode }) {
   return (
     <View
@@ -404,8 +409,13 @@ function Grid({ columns, itemWidth, children }: { columns: number; itemWidth: nu
         paddingHorizontal: H_PADDING,
       }}
     >
-      {React.Children.map(children, (child) => (
-        <View style={{ width: itemWidth }}>{child}</View>
+      {React.Children.map(children, (child, index) => (
+        <Reanimated.View
+          entering={FadeInDown.duration(360).delay(Math.min(index, 5) * 60)}
+          style={{ width: itemWidth }}
+        >
+          {child}
+        </Reanimated.View>
       ))}
     </View>
   );
@@ -574,8 +584,8 @@ export default function ProgramsScreen() {
       );
     } else if (visibleMine.length === 0) {
       body = (
-        <View className="mx-6 rounded-3xl border border-dashed border-tb-gold/50 bg-tb-gold/5 px-5 py-6 flex-row items-center gap-4">
-          <View className="w-12 h-12 rounded-2xl bg-tb-gold/15 items-center justify-center">
+        <View className="mx-6 rounded-3xl border border-dashed border-tb-gold/40 bg-white px-5 py-6 flex-row items-center gap-4">
+          <View className="w-12 h-12 rounded-2xl bg-tb-gold/10 items-center justify-center">
             <Sparkles size={22} color={COLORS.gold} />
           </View>
           <View className="flex-1 items-start">
@@ -602,7 +612,7 @@ export default function ProgramsScreen() {
     }
 
     return (
-      <View className="mb-8">
+      <View className="mb-10">
         <View className="px-6">
           <SectionHeader
             Icon={BookMarked}
@@ -693,7 +703,7 @@ export default function ProgramsScreen() {
               <ActiveProgramCardSkeleton key={i} />
             ))}
           </Grid>
-          <View className="px-6 mt-8">
+          <View className="px-6 mt-10">
             <SectionHeader
               Icon={Compass}
               title="استكشف برامج جديدة"

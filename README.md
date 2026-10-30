@@ -1,56 +1,54 @@
-# Welcome to your Expo app 👋
+# TechBox learner app (Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native (Expo) app for TechBox students: browse programs, apply, follow lessons (video, reading, quizzes), hand in assignments, track progress and read notifications.
 
-## Get started
+Backend: `techbox_backend_nestjs` (NestJS API). Every endpoint used here is documented in the backend's `api-contract-mobile.md`.
 
-1. Install dependencies
+## Requirements
 
-   ```bash
-   npm install
-   ```
+- Node.js 24
+- The backend running and reachable from the phone (same network)
+- Expo Go or a development build
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
+# The phone cannot reach "localhost": use the computer's LAN address.
+# .env.local is git-ignored (a plain .env would be committed).
+echo "EXPO_PUBLIC_API_URL=http://192.168.137.1:5000" > .env.local
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The backend's `PUBLIC_API_URL` must also use an address the phone can reach, or file links (receipts, attachments, reading files) will not open.
 
-### Other setup steps
+## Scripts
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+| Command | What it does |
+|---------|--------------|
+| `npx expo start` | Development server (Expo Go / dev build) |
+| `npm run android` / `npm run ios` | Native builds |
+| `npx tsc --noEmit` | Typecheck |
+| `npm run lint` | Expo lint |
 
-## Learn more
+CI (`.github/workflows/ci.yml`) runs the typecheck (blocking) and lint (reported, not blocking yet) on every push and pull request.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Structure
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```
+src/app/            screens (expo-router): tabs, course, lesson, quiz, assignment, enrollments
+src/components/     UI by feature (programs, lessons, assignments, enrollment, common)
+src/api/            API calls (one file per backend area) and error messages
+src/hooks/          data hooks
+src/services/       axios client (Bearer token, refresh on 401), token storage
+src/store/          auth store
+src/types/          *.contract.ts copied from the backend (do not edit), app types
+```
 
-## Join the community
+## API contracts
 
-Join our community of developers creating universal apps.
+`src/types/api.contract.ts`, `assignments.ts`, `nodes.contract.ts` and `submissions.contract.ts` mirror the backend's `src/types/`. Copy them again after a backend change; never edit them here.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Auth
+
+Tokens are kept in secure storage. On `401` the client refreshes once with the single-use refresh token and ends the session if the refresh is rejected (`src/services/api.ts`). Too many login attempts return `429`; the app shows the Arabic message for `TOO_MANY_REQUESTS`.

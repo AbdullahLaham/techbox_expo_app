@@ -197,6 +197,11 @@ export function ActiveProgramCard({ enrollment, tracksCount, onPress }: ActivePr
         {hasAccess ? (
           <View className="flex-row flex-wrap items-center gap-x-4 gap-y-1 mt-2">
             <Text className="text-tb-muted text-xs font-semibold">{progressHint}</Text>
+            {enrollment.totalLessons > 0 ? (
+              <Text className="text-tb-muted text-xs">
+                {enrollment.completedLessons}/{enrollment.totalLessons} دروس
+              </Text>
+            ) : null}
             {tracksCount ? (
               <View className="flex-row items-center gap-1">
                 <Layers size={12} color="#8A99B8" />

@@ -3,6 +3,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import type { Tabs } from 'expo-router';
 import { LucideIcon, Home, BookOpen, ClipboardList, Bell, User } from 'lucide-react-native';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 
 // expo-router bundles the bottom-tabs navigator; take its tab bar props from `Tabs`
 // instead of depending on @react-navigation/bottom-tabs directly.
@@ -18,6 +19,8 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const unreadCount = useUnreadNotificationsCount().data ?? 0;
+
   return (
     <View className="absolute bottom-6 left-6 right-6 items-center">
       <View className="flex-row bg-tb-navy h-16 rounded-full px-3 items-center justify-between shadow-2xl shadow-tb-navy/50 border border-white/10">
@@ -58,11 +61,21 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                 isFocused ? 'bg-tb-gold' : 'bg-transparent'
               }`}
             >
-              <IconComponent
-                size={22}
-                color={isFocused ? '#FFFFFF' : '#8A99B8'} // Gold highlighted with white icon, muted gray inactive
-                strokeWidth={isFocused ? 2.5 : 1.8}
-              />
+              <View>
+                <IconComponent
+                  size={22}
+                  color={isFocused ? '#FFFFFF' : '#8A99B8'} // Gold highlighted with white icon, muted gray inactive
+                  strokeWidth={isFocused ? 2.5 : 1.8}
+                />
+                {route.name === 'notifications' && unreadCount > 0 && (
+                  <View
+                    style={{ position: 'absolute', top: -6, end: -8 }}
+                    className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 items-center justify-center border border-tb-navy"
+                  >
+                    <Text className="text-white text-[10px] font-bold">{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </View>
               {isFocused && (
                 <Text className="text-white font-bold text-xs ml-2 tracking-wide capitalize">
                   {label}

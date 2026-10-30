@@ -2,17 +2,25 @@
 import { apiClient } from '@/services/api';
 import {
   NODES_ENDPOINTS,
+  type LessonProgressResult,
   type MyQuizAttempt,
   type NodeContent,
   type QuizAttemptResult,
   type StudentQuiz,
   type SubmitQuizBody,
+  type UpdateLessonProgressBody,
 } from '@/types/nodes.contract';
 
 export const nodesApi = {
   /** GET /v1/nodes/:nodeId: lesson content (video, reading resource or quiz summary). */
   async getNode(nodeId: string): Promise<NodeContent> {
     const { data } = await apiClient.get<NodeContent>(NODES_ENDPOINTS.node(nodeId));
+    return data;
+  },
+
+  /** POST /v1/nodes/:nodeId/progress: video position and/or completion (video and reading lessons only). */
+  async updateProgress(nodeId: string, body: UpdateLessonProgressBody): Promise<LessonProgressResult> {
+    const { data } = await apiClient.post<LessonProgressResult>(NODES_ENDPOINTS.nodeProgress(nodeId), body);
     return data;
   },
 

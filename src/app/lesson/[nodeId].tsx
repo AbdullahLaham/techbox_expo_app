@@ -6,13 +6,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertCircle, CheckCircle2, SearchX } from 'lucide-react-native';
 
-import { useLesson } from '@/hooks/useLessons';
+import { useLesson, useLessonProgress } from '@/hooks/useLessons';
 import { getApiErrorMessage } from '@/api/errors';
 import { StateCard } from '@/components/common/StateCard';
 import { ScreenSkeleton, SectionTitle, TopBar, isNotFound } from '@/components/lessons/LessonUi';
 import { VideoLesson } from '@/components/lessons/VideoLesson';
 import { ReadingLesson } from '@/components/lessons/ReadingLesson';
 import { QuizIntro } from '@/components/lessons/QuizIntro';
+import { LessonCompletion } from '@/components/lessons/LessonCompletion';
 import { getNodeUi } from '@/types/nodeUi';
 import type { NodeContent, StudentNodeResource } from '@/types/nodes.contract';
 
@@ -91,6 +92,9 @@ function LessonContent({
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const typeUi = getNodeUi(lesson.type);
+  const { savePosition, markCompleted } = useLessonProgress(lesson);
+  // Read once: the saved position changes while the video plays, the player must not seek again.
+  const [resumeAt] = useState(lesson.progress.lastPositionSec);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -156,12 +160,24 @@ function LessonContent({
           ) : null}
         </View>
 
-        {lesson.type === 'VIDEO_LECTURE' && <VideoLesson video={lesson.video} />}
+        {lesson.type === 'VIDEO_LECTURE' && (
+          <>
+            <VideoLesson video={lesson.video} resumeAt={resumeAt} onPosition={savePosition} />
+            {lesson.video?.playbackUrl ? (
+              <LessonCompletion
+                isCompleted={lesson.isCompleted}
+                watchedPct={lesson.progress.completionPct}
+                markCompleted={markCompleted}
+              />
+            ) : null}
+          </>
+        )}
 
         {lesson.type === 'READING_MATERIAL' && (
           <>
             <SectionTitle>محتوى الدرس</SectionTitle>
             <ReadingLesson resource={lesson.resource} getFreshResource={getFreshResource} />
+            {lesson.resource ? <LessonCompletion isCompleted={lesson.isCompleted} markCompleted={markCompleted} /> : null}
           </>
         )}
 

@@ -1,5 +1,5 @@
 // src/components/lessons/VideoLesson.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -13,6 +13,11 @@ import type { NodeContent } from '@/types/nodes.contract';
 /** Direct media files play inline; anything else (e.g. a Bunny iframe embed page) opens in the in-app browser. */
 const DIRECT_MEDIA = /\.(mp4|m4v|mov|webm|m3u8)(\?|#|$)/i;
 
+/** Save the video position about this often while it plays (the API asks for ~15 s). */
+const SAVE_EVERY_SEC = 15;
+/** Do not resume this close to the start or the end. */
+const RESUME_MARGIN_SEC = 5;
+
 async function openInBrowser(url: string) {
   try {
     await openBrowserAsync(url, { presentationStyle: WebBrowserPresentationStyle.AUTOMATIC });
@@ -21,9 +26,65 @@ async function openInBrowser(url: string) {
   }
 }
 
-function InlinePlayer({ url }: { url: string }) {
-  const player = useVideoPlayer(url);
+interface InlinePlayerProps {
+  url: string;
+  /** Where the learner stopped last time (NodeContent.progress.lastPositionSec). */
+  resumeAt: number;
+  /** Called about every 15 s while playing, on pause and when leaving the screen. */
+  onPosition?: (positionSec: number) => void;
+}
+
+function InlinePlayer({ url, resumeAt, onPosition }: InlinePlayerProps) {
+  const player = useVideoPlayer(url, (p) => {
+    p.timeUpdateEventInterval = 1;
+  });
   const { status } = useEvent(player, 'statusChange', { status: player.status });
+
+  const lastTime = useRef(0);
+  const lastSaved = useRef<number | null>(null);
+  const resumed = useRef(false);
+
+  // `force` (pause, leaving): save unless nothing moved; otherwise only every SAVE_EVERY_SEC.
+  const save = useEffectEvent((force: boolean) => {
+    const at = Math.floor(lastTime.current);
+    if (!onPosition || at <= 0) return;
+    const moved = lastSaved.current === null ? Infinity : Math.abs(at - lastSaved.current);
+    if (moved >= (force ? 1 : SAVE_EVERY_SEC)) {
+      lastSaved.current = at;
+      onPosition(at);
+    }
+  });
+
+  // Resume once, when the video is ready (seeking before that is ignored on Android).
+  const resume = useEffectEvent(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    const end = player.duration > 0 ? player.duration - RESUME_MARGIN_SEC : Infinity;
+    if (resumeAt > RESUME_MARGIN_SEC && resumeAt < end) {
+      player.seekBy(resumeAt - player.currentTime);
+      lastTime.current = resumeAt;
+      lastSaved.current = Math.floor(resumeAt);
+    }
+  });
+
+  useEffect(() => {
+    const subscriptions = [
+      player.addListener('statusChange', ({ status: next }) => {
+        if (next === 'readyToPlay') resume();
+      }),
+      player.addListener('timeUpdate', ({ currentTime }) => {
+        lastTime.current = currentTime;
+        if (player.playing) save(false);
+      }),
+      player.addListener('playingChange', ({ isPlaying }) => {
+        if (!isPlaying) save(true);
+      }),
+    ];
+    return () => {
+      subscriptions.forEach((s) => s.remove());
+      save(true); // leaving the lesson
+    };
+  }, [player]);
 
   return (
     <>
@@ -77,7 +138,15 @@ function EmbedCard({ url, durationSec }: { url: string; durationSec: number }) {
   );
 }
 
-export function VideoLesson({ video }: { video: NodeContent['video'] }) {
+interface VideoLessonProps {
+  video: NodeContent['video'];
+  /** Resume position in seconds (0 = from the start). */
+  resumeAt?: number;
+  /** Receives the playback position to save (inline player only: embeds cannot report it). */
+  onPosition?: (positionSec: number) => void;
+}
+
+export function VideoLesson({ video, resumeAt = 0, onPosition }: VideoLessonProps) {
   if (!video?.playbackUrl) {
     return (
       <View className="rounded-3xl bg-white border border-tb-muted/10 items-center justify-center p-8">
@@ -88,5 +157,9 @@ export function VideoLesson({ video }: { video: NodeContent['video'] }) {
   }
 
   const url = resolveFileUrl(video.playbackUrl);
-  return DIRECT_MEDIA.test(url) ? <InlinePlayer url={url} /> : <EmbedCard url={url} durationSec={video.durationSec} />;
+  return DIRECT_MEDIA.test(url) ? (
+    <InlinePlayer url={url} resumeAt={resumeAt} onPosition={onPosition} />
+  ) : (
+    <EmbedCard url={url} durationSec={video.durationSec} />
+  );
 }

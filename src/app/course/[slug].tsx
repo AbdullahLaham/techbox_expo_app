@@ -153,6 +153,9 @@ import {
 } from '@/types/api.contract';
 import type { ActivityNode } from '@/types/lms';
 
+/** 33.3 -> "33.3", 50 -> "50" */
+const formatPct = (value: number) => String(Number(value.toFixed(1)));
+
 const BLOCK_REASON_TEXT: Record<EnrollmentBlockReason, string> = {
   NOT_AVAILABLE: 'هذا البرنامج لا يستقبل طلبات حالياً.',
   CLOSED: 'التسجيل في هذه الدفعة مغلق حالياً.',
@@ -358,6 +361,25 @@ function ProgramDetailContent({
           <View className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6 flex-row items-start">
             <MessageSquare size={16} color="#059669" />
             <Text className="text-green-800 text-xs leading-5 mr-2 flex-1">ملاحظة الإدارة: {reviewNote}</Text>
+          </View>
+        ) : null}
+
+        {/* The learner's progress (mandatory lessons they can see) */}
+        {isEnrolled && enrollment && enrollment.totalLessons > 0 ? (
+          <View className="bg-white rounded-3xl border border-tb-muted/10 p-5 mb-6 shadow-sm">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-tb-navy font-bold text-base">تقدّمك في البرنامج</Text>
+              <Text className="text-tb-gold font-bold text-base">{formatPct(enrollment.progressPct)}%</Text>
+            </View>
+            <View className="h-2 rounded-full bg-tb-background overflow-hidden">
+              <View
+                className="h-full rounded-full bg-tb-gold"
+                style={{ width: `${Math.min(100, Math.max(0, enrollment.progressPct))}%` }}
+              />
+            </View>
+            <Text className="text-tb-muted text-xs mt-3">
+              أنجزت {enrollment.completedLessons} من {enrollment.totalLessons} دروس إجبارية
+            </Text>
           </View>
         ) : null}
 

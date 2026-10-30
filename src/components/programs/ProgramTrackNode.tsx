@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { ActivityNode } from '@/types/lms';
 import { getNodeUi } from '@/types/nodeUi';
-import { Lock, ChevronLeft } from 'lucide-react-native';
+import { Lock, ChevronLeft, CheckCircle2 } from 'lucide-react-native';
 
 interface ProgramTrackNodeProps {
   node: ActivityNode;
@@ -19,7 +19,7 @@ export function ProgramTrackNode({ node, isEnrolled, onPress }: ProgramTrackNode
       disabled={!isEnrolled}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${node.title}`}
+      accessibilityLabel={`${label}: ${node.title}${isEnrolled && node.isCompleted ? '، مكتمل' : ''}`}
       className={`p-4 rounded-2xl mb-2 flex-row items-center justify-between border ${
         isEnrolled
           ? 'bg-white border-tb-muted/10 active:bg-tb-gold/5'
@@ -41,7 +41,12 @@ export function ProgramTrackNode({ node, isEnrolled, onPress }: ProgramTrackNode
       </View>
 
       {/* القفل للزائر مقابل إمكانية الفتح للمشترك */}
-      {isEnrolled ? (
+      {isEnrolled && node.isCompleted ? (
+        <View className="flex-row items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg">
+          <CheckCircle2 size={13} color="#10B981" />
+          <Text className="text-emerald-600 text-[10px] font-bold">مكتمل</Text>
+        </View>
+      ) : isEnrolled ? (
         <View className="w-8 h-8 bg-tb-background rounded-full items-center justify-center">
           <ChevronLeft size={16} color="#BF9B30" />
         </View>

@@ -1,5 +1,5 @@
 // src/app/(tabs)/index.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -7,6 +7,7 @@ import {
   Award,
   BookOpen,
   Check,
+  CheckCircle2,
   ChevronLeft,
   Clock,
   Database,
@@ -17,7 +18,9 @@ import {
   Server,
   type LucideIcon,
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { Header } from '@/components/Header';
+import { useMyEnrollments } from '@/hooks/usePrograms';
 
 /* -------------------------------------------------------------------------- */
 /*  Tokens & mock data (replace with API / store data)                        */
@@ -43,12 +46,6 @@ type Course = {
   tint: string;
 };
 type Day = { label: string; done: boolean };
-
-const STATS: Stat[] = [
-  { id: 'courses', value: '4', label: 'كورسات حالية', Icon: BookOpen, color: COLORS.navy },
-  { id: 'hours', value: '12.5', label: 'ساعة تعلّم', Icon: Clock, color: COLORS.gold },
-  { id: 'certs', value: '2', label: 'شهادات مكتملة', Icon: Award, color: COLORS.green },
-];
 
 const COURSES: Course[] = [
   {
@@ -108,7 +105,7 @@ type ProgressRingProps = { progress: number; size?: number; stroke?: number };
 function ProgressRing({ progress, size = 84, stroke = 8 }: ProgressRingProps) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const value = useRef(new Animated.Value(0)).current;
+  const [value] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(value, {
@@ -179,7 +176,40 @@ function SectionHeader({ title, actionLabel, onActionPress }: SectionHeaderProps
 /* -------------------------------------------------------------------------- */
 
 export default function HomeScreen() {
+  const router = useRouter();
   const activeDays = WEEK.filter((d) => d.done).length;
+
+  // GET /v1/enrollments/my-enrollments (newest first): progress per program.
+  const enrollmentsQuery = useMyEnrollments();
+  const enrollments = enrollmentsQuery.data ?? [];
+  const current = enrollments.find((e) => e.status === 'ACTIVE') ?? null;
+  const currentPct = current ? Math.min(100, Math.round(current.progressPct)) : 0;
+
+  const withAccess = enrollments.filter((e) => e.status === 'ACTIVE' || e.status === 'COMPLETED');
+  const loaded = !enrollmentsQuery.isPending;
+  const stats: Stat[] = [
+    {
+      id: 'programs',
+      value: loaded ? String(enrollments.filter((e) => e.status === 'ACTIVE').length) : '–',
+      label: 'برامج حالية',
+      Icon: BookOpen,
+      color: COLORS.navy,
+    },
+    {
+      id: 'lessons',
+      value: loaded ? String(withAccess.reduce((sum, e) => sum + e.completedLessons, 0)) : '–',
+      label: 'دروس منجزة',
+      Icon: CheckCircle2,
+      color: COLORS.gold,
+    },
+    {
+      id: 'completed',
+      value: loaded ? String(enrollments.filter((e) => e.status === 'COMPLETED').length) : '–',
+      label: 'برامج مكتملة',
+      Icon: Award,
+      color: COLORS.green,
+    },
+  ];
 
   return (
     <SafeAreaView className="flex-1 bg-tb-background" edges={['top']}>
@@ -193,46 +223,76 @@ export default function HomeScreen() {
         {/* GREETING */}
         <View className="px-6 mb-5 items-start">
           <Text className="text-tb-navy text-2xl font-bold mb-1">مرحباً بك 👋</Text>
-          <Text className="text-tb-muted text-sm">لديك درس غير مكتمل، أكمله اليوم.</Text>
+          <Text className="text-tb-muted text-sm">
+            {current
+              ? currentPct < 100
+                ? 'واصل من حيث توقفت، أنت تتقدّم بثبات.'
+                : 'أنجزت كل دروس برنامجك، أحسنت!'
+              : 'انضم إلى برنامج وابدأ رحلتك التعليمية.'}
+          </Text>
         </View>
 
-        {/* HERO: continue learning */}
+        {/* HERO: continue learning (newest accepted program) */}
         <View className="px-6 mb-6">
           <View className="bg-tb-navy rounded-[32px] p-6 overflow-hidden shadow-xl shadow-tb-navy/30">
             <View className="absolute -top-16 -right-12 w-48 h-48 rounded-full bg-white/5" />
             <View className="absolute -bottom-20 -left-10 w-44 h-44 rounded-full bg-tb-gold/10" />
 
-            <View className="flex-row items-center gap-4">
-              <View className="flex-1 items-start">
-                <Text className="text-white text-xl font-bold leading-8 mb-1">
-                  تطوير التطبيقات بـ React Native & Expo
-                </Text>
-                <Text className="text-white/60 text-xs">الوحدة 3: إدارة الحالات المتقدمة</Text>
-              </View>
-              <ProgressRing progress={65} />
-            </View>
+            {current ? (
+              <>
+                <View className="flex-row items-center gap-4">
+                  <View className="flex-1 items-start">
+                    <Text className="text-white text-xl font-bold leading-8 mb-1" numberOfLines={2}>
+                      {current.program.title}
+                    </Text>
+                    <Text className="text-white/60 text-xs">
+                      {current.totalLessons > 0
+                        ? `أنجزت ${current.completedLessons} من ${current.totalLessons} دروس`
+                        : 'لم تُضف دروس إلى البرنامج بعد'}
+                    </Text>
+                  </View>
+                  <ProgressRing progress={currentPct} />
+                </View>
 
-            <View className="flex-row items-center justify-between mt-6">
-              <View className="flex-row items-center gap-2">
-                <Clock size={14} color={COLORS.onNavyMuted} />
-                <Text className="text-white/60 text-xs">المتبقي 20 دقيقة</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="متابعة الدرس"
-                className="bg-tb-gold flex-row items-center gap-2 px-5 py-3 rounded-2xl active:opacity-80"
-              >
-                <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-                <Text className="text-white font-bold text-sm">متابعة الدرس</Text>
-              </Pressable>
-            </View>
+                <View className="flex-row items-center justify-end mt-6">
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/course/[slug]', params: { slug: current.program.slug } })}
+                    accessibilityRole="button"
+                    accessibilityLabel="متابعة التعلم"
+                    className="bg-tb-gold flex-row items-center gap-2 px-5 py-3 rounded-2xl active:opacity-80"
+                  >
+                    <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                    <Text className="text-white font-bold text-sm">{currentPct > 0 ? 'متابعة التعلم' : 'ابدأ التعلم'}</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text className="text-white text-xl font-bold leading-8 mb-1">
+                  {enrollmentsQuery.isPending ? 'جاري تحميل برامجك…' : 'لا يوجد برنامج نشط بعد'}
+                </Text>
+                <Text className="text-white/60 text-xs leading-5">
+                  تصفّح البرامج المتاحة وقدّم طلب انضمام، وسيظهر تقدّمك هنا بعد قبولك.
+                </Text>
+                <View className="flex-row items-center justify-end mt-6">
+                  <Pressable
+                    onPress={() => router.push('/(tabs)/courses')}
+                    accessibilityRole="button"
+                    className="bg-tb-gold flex-row items-center gap-2 px-5 py-3 rounded-2xl active:opacity-80"
+                  >
+                    <BookOpen size={14} color="#FFFFFF" />
+                    <Text className="text-white font-bold text-sm">تصفّح البرامج</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
         {/* STATS: one container, three columns */}
         <View className="px-6 mb-8">
           <View className="bg-white rounded-3xl border border-tb-muted/10 shadow-sm flex-row items-stretch py-5">
-            {STATS.map(({ id, value, label, Icon, color }, index) => (
+            {stats.map(({ id, value, label, Icon, color }, index) => (
               <React.Fragment key={id}>
                 {index > 0 && <View className="w-px bg-tb-muted/15 my-1" />}
                 <View className="flex-1 items-center">

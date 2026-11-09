@@ -2,7 +2,18 @@
 // Program presentation helpers shared by the program cards: type -> label, icon and colours,
 // and Arabic count phrases.
 import { GraduationCap, Rocket, Wrench, Zap, type LucideIcon } from 'lucide-react-native';
-import { PROGRAM_TYPE_LABELS_AR, type ProgramType } from '@/types/api.contract';
+import { PROGRAM_TYPE_LABELS_AR, type EnrollmentBlockReason, type ProgramType } from '@/types/api.contract';
+
+/** Why a new application would be refused, as a short label. */
+export const BLOCK_REASON_LABEL: Record<EnrollmentBlockReason, string> = {
+  NOT_AVAILABLE: 'غير متاح حالياً',
+  CLOSED: 'التسجيل مغلق',
+  ENDED: 'انتهت الدفعة',
+  FULL: 'اكتمل العدد',
+};
+
+/** Seats left at or below this are highlighted. */
+export const LOW_SEATS = 10;
 
 export type ProgramTypeUi = {
   label: string;
@@ -42,3 +53,9 @@ export const tracksLabel = (n: number) =>
 
 export const seatsLabel = (n: number) =>
   pluralAr(n, { one: 'مقعد واحد', two: 'مقعدان', few: 'مقاعد', many: 'مقعداً' });
+
+export const lessonsLabel = (n: number) =>
+  pluralAr(n, { one: 'درس واحد', two: 'درسان', few: 'دروس', many: 'درساً' });
+
+export const hoursLabel = (n: number) =>
+  pluralAr(n, { one: 'ساعة واحدة', two: 'ساعتان', few: 'ساعات', many: 'ساعة' });

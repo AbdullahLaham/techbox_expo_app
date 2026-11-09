@@ -2,7 +2,9 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Bell, Search } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 
 interface HeaderProps {
   title?: string;
@@ -15,6 +17,9 @@ export function Header({ title, showUser = true }: HeaderProps) {
   // `user.x` read before its `user?.x` guard (see course/[slug].tsx).
   const firstName = user?.firstName ?? '';
   const lastName = user?.lastName ?? '';
+  const router = useRouter();
+  // Shared with the tab badge (and seeded by GET /v1/home), so this adds no request.
+  const unreadCount = useUnreadNotificationsCount().data ?? 0;
 
   return (
     <View className="bg-white px-6 pt-4 pb-4 border-b border-tb-muted/10 flex-row items-center justify-between">
@@ -50,12 +55,25 @@ export function Header({ title, showUser = true }: HeaderProps) {
 
       {/* جهة اليسار: أزرار الإجراءات (الإشعارات والبحث) */}
       <View className="flex-row items-center space-x-2 space-x-reverse">
-        <TouchableOpacity className="w-10 h-10 bg-tb-background rounded-xl items-center justify-center border border-tb-muted/10">
+        {/* No search screen yet: opens the program catalog. */}
+        <TouchableOpacity
+          onPress={() => router.navigate('/(tabs)/courses')}
+          accessibilityRole="button"
+          accessibilityLabel="تصفّح البرامج"
+          className="w-10 h-10 bg-tb-background rounded-xl items-center justify-center border border-tb-muted/10"
+        >
           <Search size={20} color="#1B254B" />
         </TouchableOpacity>
-        <TouchableOpacity className="w-10 h-10 bg-tb-background rounded-xl items-center justify-center border border-tb-muted/10 relative">
+        <TouchableOpacity
+          onPress={() => router.navigate('/(tabs)/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel={unreadCount > 0 ? `الإشعارات، ${unreadCount} غير مقروءة` : 'الإشعارات'}
+          className="w-10 h-10 bg-tb-background rounded-xl items-center justify-center border border-tb-muted/10 relative"
+        >
           <Bell size={20} color="#1B254B" />
-          <View className="w-2.5 h-2.5 bg-tb-gold rounded-full absolute top-2 right-2 border border-white" />
+          {unreadCount > 0 && (
+            <View className="w-2.5 h-2.5 bg-tb-gold rounded-full absolute top-2 right-2 border border-white" />
+          )}
         </TouchableOpacity>
       </View>
     </View>

@@ -14,7 +14,21 @@ export const programKeys = {
   catalog: () => ['program', 'list', 'catalog'] as const,
   myEnrollments: () => ['program', 'list', 'my-enrollments'] as const,
   detail: (slug: string) => ['program', slug] as const,
+  myApplicationDetails: () => ['program', 'me', 'application-details'] as const,
 };
+
+/**
+ * GET /v1/enrollments/my-details: what the user gave in an earlier application, to pre-fill
+ * the form. Under `all`, so it refreshes after an application saves new details.
+ */
+export function useMyApplicationDetails() {
+  return useQuery({
+    queryKey: programKeys.myApplicationDetails(),
+    queryFn: enrollmentsApi.getMyApplicationDetails,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
 
 /** GET /v1/programs (PUBLISHED and ONGOING programs). */
 export function useProgramCatalog() {

@@ -1,9 +1,15 @@
 // src/api/enrollments.ts
 import { apiClient } from '../services/api';
 import { EnrollmentPayload, EnrollmentResponse } from '../types/enrollment';
-import { API_ENDPOINTS } from '../types/api.contract';
+import { API_ENDPOINTS, type MyApplicationDetails } from '../types/api.contract';
 
 export const enrollmentsApi = {
+  // GET /v1/enrollments/my-details - بيانات الطلب المحفوظة في ملف المستخدم (null لما لم يُدخل بعد)
+  getMyApplicationDetails: async (): Promise<MyApplicationDetails> => {
+    const response = await apiClient.get<MyApplicationDetails>(API_ENDPOINTS.myApplicationDetails);
+    return response.data;
+  },
+
   // GET /v1/enrollments/my-enrollments - طلبات وتسجيلات المستخدم الحالي (الأحدث أولاً)
   getMyEnrollments: async (): Promise<EnrollmentResponse[]> => {
     const response = await apiClient.get<EnrollmentResponse[]>(API_ENDPOINTS.myEnrollments);

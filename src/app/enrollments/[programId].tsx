@@ -267,7 +267,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { CheckCircle2, ChevronRight, Phone, ShieldCheck, User } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, Phone, ShieldCheck, Sparkles, User } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -276,9 +276,11 @@ import { FormSelect } from '@/components/enrollment/FormSelect';
 import { FileUploader } from '@/components/enrollment/FileUploader';
 import { enrollmentsApi } from '@/api/enrollments';
 import { getApiErrorMessage } from '@/api/errors';
-import { programKeys } from '@/hooks/usePrograms';
+import { programKeys, useMyApplicationDetails } from '@/hooks/usePrograms';
+import { useAuthStore } from '@/store/useAuthStore';
 import { PALESTINE_GOVERNORATES } from '@/types/enrollment';
-import { ENROLLMENT_RECEIPT_LIMITS, type ApiErrorBody } from '@/types/api.contract';
+import { ENROLLMENT_RECEIPT_LIMITS, type ApiErrorBody, type MyApplicationDetails } from '@/types/api.contract';
+import type { AuthUser } from '@/types/auth';
 
 /* -------------------------------------------------------------------------- */
 /*  Rules (change these in one place)                                         */
@@ -346,6 +348,28 @@ const normalizeDigits = (value: string): string =>
   value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
 
 const digitsOnly = (value: string): string => normalizeDigits(value).replace(/\D/g, '');
+
+const ARABIC_NAME = /^[؀-ۿ\s]+$/;
+const LATIN_NAME = /^[A-Za-z\s.'-]+$/;
+
+/**
+ * Form values we already know about the user: the details saved by an earlier application,
+ * else the account name for the name field in its script. The receipt is never pre-filled.
+ */
+function knownFormValues(details: MyApplicationDetails | undefined, user: AuthUser | null): Partial<EnrollmentForm> {
+  const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const values: Partial<EnrollmentForm> = {
+    fullNameAr: details?.fullNameAr ?? (ARABIC_NAME.test(accountName) ? accountName : undefined),
+    fullNameEn: details?.fullNameEn ?? (LATIN_NAME.test(accountName) ? accountName : undefined),
+    age: details?.age != null ? String(details.age) : undefined,
+    nationalId: details?.nationalId ? digitsOnly(details.nationalId) : undefined,
+    phoneWhatsApp: details?.phoneWhatsApp ? normalizeDigits(details.phoneWhatsApp) : undefined,
+    // Only a value the picker offers, so the select never shows something it can't list.
+    governorate:
+      details?.governorate && PALESTINE_GOVERNORATES.includes(details.governorate) ? details.governorate : undefined,
+  };
+  return Object.fromEntries(Object.entries(values).filter(([, v]) => v?.trim())) as Partial<EnrollmentForm>;
+}
 
 function validate(form: EnrollmentForm): FormErrors {
   const errors: FormErrors = {};
@@ -436,6 +460,27 @@ export default function EnrollmentScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [prefilledCount, setPrefilledCount] = useState(0);
+
+  const user = useAuthStore((s) => s.user);
+  const savedDetails = useMyApplicationDetails();
+  const didPrefill = useRef(false);
+
+  // Fill what we already know once the saved details arrive (or fail to: the account name still
+  // helps). Only empty fields are filled, so nothing the user typed meanwhile is overwritten.
+  useEffect(() => {
+    if (didPrefill.current || savedDetails.isPending) return;
+    didPrefill.current = true;
+    const known = knownFormValues(savedDetails.data, user);
+    setForm((prev) => {
+      const next = { ...prev };
+      for (const [key, value] of Object.entries(known) as [keyof EnrollmentForm, string][]) {
+        if (!prev[key].trim()) next[key] = value;
+      }
+      return next;
+    });
+    setPrefilledCount(Object.keys(known).length);
+  }, [savedDetails.isPending, savedDetails.data, user]);
 
   const scrollRef = useRef<ScrollView>(null);
   const nameEnRef = useRef<TextInput>(null);
@@ -614,6 +659,16 @@ export default function EnrollmentScreen() {
               </View>
             </View>
           </View>
+
+          {prefilledCount > 0 && (
+            <View className="flex-row items-start gap-3 bg-tb-gold/10 border border-tb-gold/30 p-4 rounded-2xl mb-6">
+              <Sparkles size={18} color="#BF9B30" />
+              <Text className="flex-1 text-tb-navy text-xs leading-5">
+                عبّأنا البيانات المتوفرة لدينا عنك مسبقاً. يرجى مراجعتها وتعديلها إن لزم، ثم إكمال الحقول
+                الفارغة وإرفاق إيصال الدفع.
+              </Text>
+            </View>
+          )}
 
           {/* Section 1: personal details */}
           <SectionTitle>البيانات الشخصية</SectionTitle>

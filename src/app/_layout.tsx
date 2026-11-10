@@ -198,6 +198,7 @@ import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import axios from "axios";
 import { RouteErrorBoundary } from "@/components/common/RouteErrorBoundary";
+import { useResumeTimedQuizOnLaunch } from "@/hooks/useQuizSession";
 
 // Catches render errors in every screen without its own boundary.
 export { RouteErrorBoundary as ErrorBoundary };
@@ -236,6 +237,9 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
   const { isAuthenticated, initializeAuth } = useAuthStore();
+
+  // Reopen a timed quiz left mid-attempt (or submit it if its time ran out while the app was closed).
+  useResumeTimedQuizOnLaunch(isReady && isAuthenticated);
 
   useEffect(() => {
     let isMounted = true;

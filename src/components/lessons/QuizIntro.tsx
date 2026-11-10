@@ -2,11 +2,13 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CheckCircle2, ChevronLeft, ClipboardList, Hourglass, XCircle } from 'lucide-react-native';
+import { CheckCircle2, ChevronLeft, ClipboardList, History, Hourglass, XCircle } from 'lucide-react-native';
 
 import { useQuizAttempts } from '@/hooks/useLessons';
+import { useAuthStore } from '@/store/useAuthStore';
+import { getQuizTimeLimitSec, isSessionSubmittedElsewhere, useStoredQuizSession } from '@/store/useQuizSessionStore';
 import { formatDate, formatScore } from '@/components/assignments/assignmentFormat';
-import { InfoTile, SectionTitle } from '@/components/lessons/LessonUi';
+import { InfoTile, SectionTitle, formatDuration } from '@/components/lessons/LessonUi';
 import type { StudentQuizSummary } from '@/types/nodes.contract';
 
 export function QuizIntro({ quiz }: { quiz: StudentQuizSummary | null }) {
@@ -25,10 +27,22 @@ function QuizIntroContent({ quiz }: { quiz: StudentQuizSummary }) {
   const router = useRouter();
   const attempts = useQuizAttempts(quiz.attemptsUsed > 0 ? quiz.id : undefined);
 
+  const userId = useAuthStore((s) => s.user?.id);
+  const saved = useStoredQuizSession(userId, quiz.id);
+  // A draft the server already counted is not resumable (the quiz screen explains it).
+  const inProgress = saved && !isSessionSubmittedElsewhere(saved, quiz) ? saved : undefined;
+  const savedAnswers = inProgress ? Object.keys(inProgress.answers).length : 0;
+  const timeLimitSec = getQuizTimeLimitSec(quiz);
+
   const noAttemptsLeft = quiz.attemptsRemaining === 0;
   const lastAttemptId = quiz.lastAttemptId;
   const attemptsLabel =
     quiz.maxAttempts == null ? 'غير محدودة' : `${quiz.attemptsRemaining ?? 0} من ${quiz.maxAttempts}`;
+  const startLabel = inProgress
+    ? `متابعة الاختبار (السؤال ${inProgress.currentIndex + 1} من ${quiz.questionCount})`
+    : quiz.attemptsUsed > 0
+      ? 'محاولة جديدة'
+      : 'ابدأ الاختبار';
 
   const start = () => router.push({ pathname: '/quiz/[quizId]', params: { quizId: quiz.id } });
   const openAttempt = (attemptId: string) =>
@@ -48,6 +62,7 @@ function QuizIntroContent({ quiz }: { quiz: StudentQuizSummary }) {
           <InfoTile label="الدرجة الكلية" value={formatScore(quiz.totalScore)} />
           <InfoTile label="درجة النجاح" value={formatScore(quiz.passingScore)} />
           <InfoTile label="المحاولات المتبقية" value={attemptsLabel} valueClass={noAttemptsLeft ? 'text-red-500' : 'text-tb-navy'} />
+          {timeLimitSec != null && <InfoTile label="الوقت المحدد" value={formatDuration(timeLimitSec)} />}
           {quiz.bestScore != null && (
             <InfoTile
               label="أفضل نتيجة"
@@ -79,14 +94,29 @@ function QuizIntroContent({ quiz }: { quiz: StudentQuizSummary }) {
           )}
         </View>
       ) : (
-        <Pressable
-          onPress={start}
-          disabled={quiz.questionCount === 0}
-          accessibilityRole="button"
-          className={`py-4 rounded-2xl items-center mb-6 ${quiz.questionCount === 0 ? 'bg-tb-muted/40' : 'bg-tb-gold active:opacity-80'}`}
-        >
-          <Text className="text-white font-bold">{quiz.attemptsUsed > 0 ? 'محاولة جديدة' : 'ابدأ الاختبار'}</Text>
-        </Pressable>
+        <View className="mb-6">
+          {inProgress ? (
+            <View className="flex-row items-center gap-2 mb-3 bg-tb-gold/10 rounded-2xl p-3">
+              <History size={16} color="#BF9B30" />
+              <Text className="text-tb-navy text-xs font-semibold flex-1 leading-5">
+                لديك محاولة محفوظة على هذا الجهاز ({savedAnswers} {savedAnswers === 1 ? 'إجابة' : 'إجابات'})
+                {inProgress.expiresAt ? '، والمؤقت مستمر في العد.' : '.'}
+              </Text>
+            </View>
+          ) : timeLimitSec != null ? (
+            <Text className="text-tb-muted text-[11px] text-center mb-3 leading-5">
+              يبدأ المؤقت عند الضغط على «ابدأ» ولا يتوقف إذا أغلقت التطبيق، وتُسلَّم إجاباتك تلقائياً عند انتهاء الوقت.
+            </Text>
+          ) : null}
+          <Pressable
+            onPress={start}
+            disabled={quiz.questionCount === 0}
+            accessibilityRole="button"
+            className={`py-4 rounded-2xl items-center ${quiz.questionCount === 0 ? 'bg-tb-muted/40' : 'bg-tb-gold active:opacity-80'}`}
+          >
+            <Text className="text-white font-bold">{startLabel}</Text>
+          </Pressable>
+        </View>
       )}
 
       {quiz.attemptsUsed > 0 && (

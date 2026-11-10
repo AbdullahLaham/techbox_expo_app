@@ -26,7 +26,7 @@ export function useLesson(nodeId: string) {
   return query;
 }
 
-/** GET /v1/quizzes/:quizId. Fetched once per quiz session; the answers live in the screen's local state. */
+/** GET /v1/quizzes/:quizId. Fetched once per quiz session; the answers live on the device (useQuizSessionStore). */
 export function useQuiz(quizId: string) {
   return useQuery({
     queryKey: lessonKeys.quiz(quizId),

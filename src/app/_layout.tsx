@@ -191,8 +191,10 @@
 // src/app/_layout.tsx
 import "../../global.css";
 import React, { useEffect, useState } from "react";
-import { View, ActivityIndicator, I18nManager, AppState, Platform } from "react-native";
+import { View, I18nManager, AppState, Platform } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { AnimatedSplash } from "@/components/splash/AnimatedSplash";
 import { useAuthStore } from "@/store/useAuthStore";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -202,6 +204,9 @@ import { useResumeTimedQuizOnLaunch } from "@/hooks/useQuizSession";
 
 // Catches render errors in every screen without its own boundary.
 export { RouteErrorBoundary as ErrorBoundary };
+
+// Keep the native splash up until <AnimatedSplash> has drawn its first frame (it hides it on layout).
+SplashScreen.preventAutoHideAsync();
 
 // Move RTL config inside module initialization or root effect without forcing state resets while rendering
 if (!I18nManager.isRTL) {
@@ -235,6 +240,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [isReady, setIsReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   const { isAuthenticated, initializeAuth } = useAuthStore();
 
@@ -278,23 +284,21 @@ export default function RootLayout() {
     return () => clearTimeout(timeout);
   }, [isReady, isAuthenticated, segments]);
 
-  if (!isReady) {
-    return (
-      <View className="flex-1 bg-tb-background items-center justify-center">
-        <ActivityIndicator size="large" color="#BF9B30" />
-      </View>
-    );
-  }
-
+  // The app mounts underneath the splash as soon as auth is restored, so it has already routed
+  // (login or home) by the time the splash fades out over it.
   return (
-    <QueryClientProvider client={queryClient} >
-      <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#F4F7FE" } }}>
-        <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
-        <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
-      </Stack>
-      </SafeAreaProvider>
-    </QueryClientProvider>
-    
+    <View className="flex-1 bg-tb-background">
+      {isReady && (
+        <QueryClientProvider client={queryClient}>
+          <SafeAreaProvider>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#F4F7FE" } }}>
+              <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
+              <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+            </Stack>
+          </SafeAreaProvider>
+        </QueryClientProvider>
+      )}
+      {showSplash && <AnimatedSplash isAppReady={isReady} onFinish={() => setShowSplash(false)} />}
+    </View>
   );
 }

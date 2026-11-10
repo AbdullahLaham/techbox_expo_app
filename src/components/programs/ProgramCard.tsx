@@ -4,19 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { CalendarDays, ChevronLeft, Info, Layers, Lock, UserPlus, Users } from 'lucide-react-native';
 import type { Program } from '@/types/lms';
-import type { EnrollmentBlockReason, EnrollmentStatus } from '@/types/api.contract';
+import type { EnrollmentStatus } from '@/types/api.contract';
 import { ProgramCover } from './ProgramCover';
-import { getProgramTypeUi, seatsLabel, tracksLabel } from './programTypeUi';
-
-const BLOCK_REASON_LABEL: Record<EnrollmentBlockReason, string> = {
-  NOT_AVAILABLE: 'غير متاح حالياً',
-  CLOSED: 'التسجيل مغلق',
-  ENDED: 'انتهت الدفعة',
-  FULL: 'اكتمل العدد',
-};
-
-/** Seats left at or below this are highlighted. */
-const LOW_SEATS = 10;
+import { BLOCK_REASON_LABEL, LOW_SEATS, getProgramTypeUi, seatsLabel, tracksLabel } from './programTypeUi';
 
 /** "12 نوفمبر" for a future start date, otherwise null. Latin digits, like the rest of the app. */
 function upcomingStart(iso: string | null): string | null {

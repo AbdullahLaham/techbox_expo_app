@@ -6,6 +6,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from '@/components/AuthInput';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useAuthStore } from '@/store/useAuthStore';
+import { SUPPORT } from '@/constants/support';
+
+/** No self-service reset yet (no email service): staff reset passwords from the dashboard. */
+function showPasswordHelp() {
+  const contacts = [
+    SUPPORT.whatsapp ? `واتساب: +${SUPPORT.whatsapp}` : null,
+    SUPPORT.email ? `البريد: ${SUPPORT.email}` : null,
+  ].filter(Boolean);
+  Alert.alert(
+    'نسيت كلمة المرور؟',
+    ['يرجى التواصل مع إدارة تك بوكس لإعادة تعيين كلمة المرور.', ...contacts].join('\n'),
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -82,7 +95,7 @@ export default function LoginPage() {
             />
             
             <View className="flex-row justify-start mb-6 -mt-3">
-              <TouchableOpacity onPress={() => Alert.alert('نسيت كلمة المرور؟', 'يرجى التواصل مع إدارة تك بوكس لإعادة تعيين كلمة المرور.')}>
+              <TouchableOpacity onPress={showPasswordHelp}>
                 <Text className="text-tb-gold/90 text-sm font-medium">نسيت كلمة المرور؟</Text>
               </TouchableOpacity>
             </View>

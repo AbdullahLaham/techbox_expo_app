@@ -1,5 +1,5 @@
 // src/components/assignments/AssignmentCard.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { ChevronLeft, ClipboardList, Clock, MessageSquare, Sparkles } from 'lucide-react-native';
 
@@ -149,7 +149,8 @@ export function AssignmentCard({ item, onPress }: AssignmentCardProps) {
 /* -------------------------------------------------------------------------- */
 
 export function AssignmentCardSkeleton() {
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  // Created once; useState keeps it out of render-time ref reads (React Compiler).
+  const [opacity] = useState(() => new Animated.Value(0.5));
 
   useEffect(() => {
     const loop = Animated.loop(

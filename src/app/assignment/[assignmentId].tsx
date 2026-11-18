@@ -45,6 +45,11 @@ import { ATTACHMENT_URL_TTL_MS, type AssignmentAttachmentDto } from '@/types/ass
 /** Re-fetch signed links this long before they expire. */
 const URL_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
+/** True when data fetched at `fetchedAt` may hold signed links that are about to expire. */
+function linksMayHaveExpired(fetchedAt: number): boolean {
+  return Date.now() - fetchedAt > ATTACHMENT_URL_TTL_MS - URL_REFRESH_MARGIN_MS;
+}
+
 const isNotFound = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 404;
 
 function formatBytes(bytes: number): string {
@@ -156,7 +161,7 @@ export default function AssignmentDetailsScreen() {
     try {
       let url = attachment.url;
       // Signed links expire after an hour: get fresh ones if this response is getting old.
-      if (Date.now() - dataUpdatedAt > ATTACHMENT_URL_TTL_MS - URL_REFRESH_MARGIN_MS) {
+      if (linksMayHaveExpired(dataUpdatedAt)) {
         const fresh = await refetch();
         if (fresh.isError) throw fresh.error;
         const match = fresh.data?.attachments.find((a) => a.id === attachment.id);

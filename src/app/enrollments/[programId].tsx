@@ -411,7 +411,8 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 function SuccessView({ onDone }: { onDone: () => void }) {
-  const scale = useRef(new Animated.Value(0.6)).current;
+  // Created once; useState keeps it out of render-time ref reads (React Compiler).
+  const [scale] = useState(() => new Animated.Value(0.6));
 
   useEffect(() => {
     Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
@@ -488,10 +489,11 @@ export default function EnrollmentScreen() {
   const fieldY = useRef<Partial<Record<FieldKey, number>>>({});
 
   /** Records a field's vertical position so we can scroll to it on a validation error. */
+  const recordFieldY = useCallback((keys: FieldKey[], y: number) => {
+    for (const key of keys) fieldY.current[key] = y;
+  }, []);
   const trackField = (...keys: FieldKey[]) => ({
-    onLayout: (e: LayoutChangeEvent) => {
-      for (const key of keys) fieldY.current[key] = e.nativeEvent.layout.y;
-    },
+    onLayout: (e: LayoutChangeEvent) => recordFieldY(keys, e.nativeEvent.layout.y),
   });
 
   const updateField = useCallback(
